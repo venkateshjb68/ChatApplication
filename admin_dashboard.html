@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <style>
+        body { margin: 0; font-family: monospace; background: #1a1a1a; color: #0f0; display: flex; height: 100vh; }
+        
+        /* SIDEBAR (Users) */
+        .sidebar { width: 300px; background: #222; border-right: 1px solid #333; padding: 20px; overflow-y: auto; }
+        .sidebar h3 { color: white; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        .user-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; }
+        .ban-btn { background: #c00; color: white; border: none; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+        .ban-btn:hover { background: red; }
+
+        /* MAIN (Logs) */
+        .main { flex: 1; padding: 20px; display: flex; flex-direction: column; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        .big-btn { padding: 10px 20px; font-size: 14px; cursor: pointer; border: none; font-weight: bold; }
+        .btn-clear { background: #f90; color: black; }
+        .btn-logout { background: #444; color: white; text-decoration: none; display: inline-block; padding: 10px 20px; }
+
+        #admin-log { flex: 1; background: black; border: 1px solid #333; padding: 10px; overflow-y: auto; color: #ccc; }
+        .log-msg { margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3>ACTIVE USERS</h3>
+        <div id="user-list"></div>
+    </div>
+
+    <div class="main">
+        <div class="controls">
+            <button class="big-btn btn-clear" onclick="clearAllChat()">⚠ CLEAR ALL CHAT HISTORY</button>
+            <a href="/ad1/logout/" class="big-btn btn-logout">LOGOUT</a>
+        </div>
+        <h3>LIVE MONITOR</h3>
+        <div id="admin-log"></div>
+    </div>
+
+    <script>
+        const chatSocket = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/chat/');
+
+        chatSocket.onopen = function() {
+            // Join as invisible admin
+            chatSocket.send(JSON.stringify({ 'type': 'join', 'username': 'ADMIN_MONITOR' }));
+        };
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+
+            if (data.type === 'user_list_update') {
+                renderUserList(data.users);
+            } else if (data.type === 'chat_message') {
+                const log = document.getElementById('admin-log');
+                log.innerHTML += `<div class="log-msg">[${new Date().toLocaleTimeString()}] <b>${data.username}</b>: ${data.message}</div>`;
+                log.scrollTop = log.scrollHeight;
+            }
+        };
+
+        function renderUserList(users) {
+            const container = document.getElementById('user-list');
+            container.innerHTML = '';
+            users.forEach(user => {
+                if (user !== 'ADMIN_MONITOR') {
+                    container.innerHTML += `
+                        <div class="user-row">
+                            <span>${user}</span>
+                            <button class="ban-btn" onclick="kickUser('${user}')">BLOCK / KICK</button>
+                        </div>`;
+                }
+            });
+        }
+
+        function kickUser(username) {
+            if(confirm('Are you sure you want to KICK ' + username + '?')) {
+                chatSocket.send(JSON.stringify({
+                    'type': 'admin_command',
+                    'command': 'kick_user',
+                    'target': username
+                }));
+            }
+        }
+
+        function clearAllChat() {
+            if(confirm('This will wipe the chat for EVERYONE. Continue?')) {
+                chatSocket.send(JSON.stringify({
+                    'type': 'admin_command',
+                    'command': 'clear_chat'
+                }));
+            }
+        }
+    </script>
+</body>
+</html>

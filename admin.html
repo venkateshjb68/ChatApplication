@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Admin Dashboard</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background: #f4f4f9; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        .section { margin-bottom: 30px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        
+        .empty-msg { color: #777; font-style: italic; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Control Room</h1>
+        
+        <div class="section">
+            <h3>Global Actions</h3>
+            <form method="POST" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" name="clear_chat" value="true" class="btn btn-danger">CLEAR ALL CHAT HISTORY</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h3>Active Users ({% if users %}{{ users|length }}{% else %}0{% endif %})</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td><strong>{{ user }}</strong></td>
+                        <td>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <button type="submit" name="kick_user" value="{{ user }}" class="btn btn-danger">BLOCK/KICK</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="empty-msg">No active users found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <p><a href="/">Go to Chat</a></p>
+    </div>
+</body>
+</html>

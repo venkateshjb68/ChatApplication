@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WhatsApp P2P</title>
+    <style>
+        /* --- STYLES (Same as before) --- */
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #d1d7db; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        #login-screen { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px; z-index: 100; }
+        #login-screen input, #login-screen button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 16px; }
+        #login-screen input { border: 1px solid #ddd; } #login-screen button { background: #00a884; color: white; border: none; font-weight: bold; cursor: pointer; }
+        #chat-screen { display: none; flex-direction: column; width: 100%; height: 100%; background: #e5ddd5; position: relative; }
+        .chat-header { background: #008069; color: white; padding: 10px 15px; display: flex; align-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .chat-header img { width: 40px; height: 40px; border-radius: 50%; margin-right: 12px; background: #ddd; }
+        .chat-header h3 { margin: 0; font-size: 17px; text-transform: capitalize; }
+        .chat-header span { font-size: 12px; opacity: 0.8; }
+        #chat-log { flex: 1; overflow-y: auto; padding: 20px 10px; display: flex; flex-direction: column; gap: 8px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat; background-size: 400px; }
+        .message-container { display: flex; flex-direction: column; max-width: 80%; }
+        .message { padding: 8px 10px; border-radius: 7.5px; font-size: 15px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); word-wrap: break-word; }
+        .meta { font-size: 11px; margin-bottom: 2px; font-weight: bold; }
+        .sent { align-self: flex-end; } .sent .message { background: #d9fdd3; border-top-right-radius: 0; }
+        .received { align-self: flex-start; } .received .message { background: white; border-top-left-radius: 0; } .received .meta { color: #d85000; padding-left: 2px;}
+        .system-msg { align-self: center; background: #e3f6fc; padding: 5px 12px; border-radius: 20px; font-size: 12px; color: #555; margin: 5px 0; }
+        .file-card { display: flex; flex-direction: column; gap: 5px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 5px; margin-top: 5px; border: 1px solid rgba(0,0,0,0.1); }
+        .file-info { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+        .download-btn { background: #008069; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 12px; text-align: center; margin-top: 2px; }
+        .chat-footer { padding: 8px 10px; background: #f0f2f5; display: flex; align-items: center; gap: 8px; }
+        .chat-footer input { flex: 1; padding: 12px 15px; border: none; border-radius: 20px; outline: none; font-size: 15px; background: white; }
+        .icon-btn { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .icon-btn:hover { background: rgba(0,0,0,0.1); }
+        .icon-btn svg { width: 24px; height: 24px; fill: #54656f; }
+        #send-btn { background: #008069; width: 45px; height: 45px; } #send-btn svg { fill: white; margin-left: 2px; }
+        #file-input { display: none; }
+        #group-info-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { background: #008069; color: white; padding: 15px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 20px; max-height: 300px; overflow-y: auto; }
+        .user-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; font-size: 16px; }
+        .user-dot { height: 10px; width: 10px; background-color: #25D366; border-radius: 50%; margin-right: 10px; }
+        .close-btn { cursor: pointer; font-size: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="login-screen">
+        <h2>Enter Name</h2>
+        <input type="text" id="username-input" placeholder="Your Name">
+        <button onclick="joinChat()">Join Chat</button>
+    </div>
+
+    <div id="chat-screen">
+        <div class="chat-header" onclick="openGroupInfo()">
+            <img src="https://cdn-icons-png.flaticon.com/512/1077/1077114.png" alt="Profile">
+            <div><h3 id="header-title">User Name</h3><span>Tap for group info</span></div>
+        </div>
+        <div id="chat-log"></div>
+        <div class="chat-footer">
+            <button class="icon-btn" onclick="document.getElementById('file-input').click()"><svg viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"></path></svg></button>
+            <input type="file" id="file-input" onchange="handleFileSelect()">
+            <input id="chat-message-input" type="text" placeholder="Type a message" autocomplete="off">
+            <button id="send-btn" class="icon-btn"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg></button>
+        </div>
+    </div>
+
+    <div id="group-info-modal" onclick="closeGroupInfo(event)">
+        <div class="modal-content">
+            <div class="modal-header"><div>Present Members</div><span class="close-btn" onclick="closeGroupInfo(null)">&times;</span></div>
+            <div class="modal-body" id="user-list"></div>
+        </div>
+    </div>
+
+   <script>
+    let chatSocket = null; 
+    let myUsername = ""; 
+    let activeMembers = [];
+    let myFiles = {}; 
+    let peers = {}; 
+    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    function joinChat() {
+        const input = document.getElementById('username-input');
+        if (input.value.trim() === "") return alert("Please enter a name!");
+        myUsername = input.value.trim();
+        document.getElementById('header-title').innerText = myUsername;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('chat-screen').style.display = 'flex';
+        connectWebSocket();
+    }
+
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        chatSocket = new WebSocket(protocol + window.location.host + '/ws/chat/');
+        chatSocket.onopen = function(e) { chatSocket.send(JSON.stringify({ 'type': 'join', 'username': myUsername })); };
+        
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            
+            // --- HANDLERS ---
+            if (data.type === 'kick_event') { alert('You have been kicked by the Admin.'); window.location.reload(); return; }
+            if (data.type === 'clear_chat') { document.getElementById('chat-log').innerHTML = ''; return; }
+            if (data.type === 'user_list_update') { activeMembers = data.users; updateUserListUI(); } 
+            else if (data.type === 'chat_message') { renderMessage(data); } 
+            else if (data.type === 'file_announcement') { renderFileCard(data); }
+            
+            // --- P2P SIGNALING ---
+            else if (data.target === myUsername) {
+                if (data.type === 'request_download') startP2PSender(data.sender, data.file_id);
+                else if (data.type === 'webrtc_offer') handleOffer(data);
+                else if (data.type === 'webrtc_answer') handleAnswer(data);
+                else if (data.type === 'new_ice_candidate') handleCandidate(data);
+            }
+        };
+    }
+
+    function renderMessage(data) {
+        const chatLog = document.querySelector('#chat-log');
+        if (data.is_system) { chatLog.insertAdjacentHTML('beforeend', `<div class="system-msg">${data.message}</div>`); } else {
+            const isMe = (data.username === myUsername);
+            const alignClass = isMe ? 'sent' : 'received';
+            const html = `<div class="message-container ${alignClass}">${!isMe ? `<div class="meta">${data.username}</div>` : ''}<div class="message">${data.message}</div></div>`;
+            chatLog.insertAdjacentHTML('beforeend', html);
+        }
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function renderFileCard(data) {
+        const chatLog = document.querySelector('#chat-log');
+        const isMe = (data.username === myUsername);
+        const alignClass = isMe ? 'sent' : 'received';
+        // We do not need to pass filename to requestDownload anymore, just the ID is enough to find it later
+        let btnHtml = isMe ? `<span style="font-size:12px; color:#555;">(You shared this)</span>` : `<button class="download-btn" onclick="requestDownload('${data.username}', '${data.file_id}')">⬇ Download (P2P)</button>`;
+        const html = `<div class="message-container ${alignClass}">${!isMe ? `<div class="meta">${data.username}</div>` : ''}<div class="message"><div class="file-card"><div class="file-info"><span class="file-icon">📄</span><span>${data.filename} <br><small>${(data.filesize/1024).toFixed(1)} KB</small></span></div>${btnHtml}</div></div></div>`;
+        chatLog.insertAdjacentHTML('beforeend', html);
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    // --- FILE LOGIC ---
+    function handleFileSelect() {
+        const file = document.getElementById('file-input').files[0];
+        if (!file) return;
+        const fileId = Date.now().toString(); myFiles[fileId] = file;
+        // Announcement just for display
+        chatSocket.send(JSON.stringify({ type: 'file_announcement', username: myUsername, filename: file.name, filesize: file.size, file_id: fileId }));
+        document.getElementById('file-input').value = '';
+    }
+
+    function requestDownload(target, fileId) { 
+        // We only send the ID. The Sender will look up the ID and send back the correct Name/Type.
+        chatSocket.send(JSON.stringify({ type: 'request_download', target: target, sender: myUsername, file_id: fileId })); 
+    }
+
+    function createPeerConnection(target) {
+        const pc = new RTCPeerConnection(rtcConfig);
+        pc.onicecandidate = (e) => { 
+            if (e.candidate) chatSocket.send(JSON.stringify({ type: 'new_ice_candidate', target: target, sender: myUsername, candidate: e.candidate })); 
+        };
+        return pc;
+    }
+
+    // --- SENDER SIDE (Updated to send Name & Type) ---
+    async function startP2PSender(receiver, fileId) {
+        const pc = createPeerConnection(receiver);
+        const file = myFiles[fileId]; 
+        const channel = pc.createDataChannel("fileTransfer");
+        
+        channel.onopen = () => { 
+            const reader = new FileReader(); 
+            reader.onload = e => { 
+                channel.send(e.target.result); 
+                setTimeout(() => channel.close(), 500); 
+            }; 
+            reader.readAsArrayBuffer(file); 
+        };
+
+        const offer = await pc.createOffer(); 
+        await pc.setLocalDescription(offer);
+        
+        // **KEY CHANGE HERE**: We attach filename and filetype to the signal
+        chatSocket.send(JSON.stringify({ 
+            type: 'webrtc_offer', 
+            target: receiver, 
+            sender: myUsername, 
+            sdp: offer, 
+            file_id: fileId,
+            filename: file.name,  // Send Real Name
+            filetype: file.type   // Send Real MIME Type
+        }));
+        peers[receiver] = pc;
+    }
+
+    // --- RECEIVER SIDE (Updated to use Name & Type) ---
+    async function handleOffer(data) {
+        const pc = createPeerConnection(data.sender); 
+        peers[data.sender] = pc;
+        
+        // Capture the Name and Type from the signal
+        const filename = data.filename;
+        const filetype = data.filetype;
+
+        pc.ondatachannel = (e) => {
+            const channel = e.channel; 
+            channel.binaryType = 'arraybuffer'; 
+            const parts = [];
+            
+            channel.onmessage = (evt) => parts.push(evt.data);
+            
+            channel.onclose = () => { 
+                // Create Blob with the correct Type
+                const blob = new Blob(parts, { type: filetype }); 
+                const url = URL.createObjectURL(blob); 
+                
+                // Create Link with the correct Name
+                const a = document.createElement('a'); 
+                a.href = url; 
+                a.download = filename; // Forces browser to use this name
+                a.click(); 
+            };
+        };
+
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp)); 
+        const answer = await pc.createAnswer(); 
+        await pc.setLocalDescription(answer);
+        chatSocket.send(JSON.stringify({ type: 'webrtc_answer', target: data.sender, sender: myUsername, sdp: answer }));
+    }
+
+    async function handleAnswer(data) { if (peers[data.sender]) await peers[data.sender].setRemoteDescription(new RTCSessionDescription(data.sdp)); }
+    async function handleCandidate(data) { if (peers[data.sender]) await peers[data.sender].addIceCandidate(new RTCIceCandidate(data.candidate)); }
+
+    // --- UI LISTENERS ---
+    document.querySelector('#send-btn').onclick = sendMessage;
+    document.querySelector('#chat-message-input').onkeyup = function(e) { if (e.key === 'Enter') sendMessage(); };
+    function sendMessage() { const input = document.querySelector('#chat-message-input'); const message = input.value.trim(); if (message && chatSocket) { chatSocket.send(JSON.stringify({ 'type': 'chat_message', 'message': message, 'username': myUsername })); input.value = ''; } }
+    function openGroupInfo() { updateUserListUI(); document.getElementById('group-info-modal').style.display = 'flex'; }
+    function closeGroupInfo(e) { if (!e || e.target.id === 'group-info-modal' || e.target.classList.contains('close-btn')) { document.getElementById('group-info-modal').style.display = 'none'; } }
+    function updateUserListUI() { const listContainer = document.getElementById('user-list'); listContainer.innerHTML = ""; activeMembers.forEach(user => { const isMe = (user === myUsername) ? " (You)" : ""; const html = `<div class="user-item"><span class="user-dot"></span> ${user}${isMe}</div>`; listContainer.insertAdjacentHTML('beforeend', html); }); }
+</script>
+</body>
+</html>
